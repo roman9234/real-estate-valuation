@@ -1,0 +1,10 @@
+{
+  "area": 60.0,
+  "rooms": 2,
+  "floor": 6,
+  "total_floors": 15,
+  "minutes_to_metro": 11,
+  "is_studio": 0,
+  "metro_station": "Авиамоторная",
+  "renovation": "Cosmetic"
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Оценка квартиры — MVP</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 0;
+            background: #f5f7fa; color: #1a2332;
+        }
+        header {
+            background: #1e3a5f; color: #fff;
+            padding: 20px 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+        header p { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        <span style="color: hsl(var(--primary)); font-weight: 500;">@media</span> (max-width: 800px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .card h2 {
+            margin: 0 0 16px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e3a5f;
+            border-bottom: 1px solid #e1e8ef;
+            padding-bottom: 10px;
+        }
+
+        .field { margin-bottom: 14px; }
+        .field label {
+            display: block;
+            font-size: 13px;
+            color: #4a5868;
+            margin-bottom: 4px;
+        }
+        .field input, .field select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .field input:focus, .field select:focus {
+            outline: none;
+            border-color: #4f86c6;
+        }
+
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        button {
+            width: 100%;
+            background: #4f86c6;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        button:hover { background: #3d6fa8; }
+
+        .model-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .model-tabs label {
+            flex: 1;
+            min-width: 110px;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 13px;
+            cursor: pointer;
+            background: #f8fafc;
+        }
+        .model-tabs input { display: none; }
+        .model-tabs input:checked + span {
+            color: #fff;
+        }
+        .model-tabs label:has(input:checked) {
+            background: #1e3a5f;
+            border-color: #1e3a5f;
+            color: #fff;
+        }
+        .recommended {
+            font-size: 10px;
+            color: #2ecc71;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: block;
+        }
+        .model-tabs label:has(input:checked) .recommended { color: #a8e6c1; }
+
+        .result-price {
+            font-size: 36px;
+            font-weight: 700;
+            color: #1e3a5f;
+            margin: 8px 0;
+        }
+        .result-price small { font-size: 16px; color: #4a5868; font-weight: 400; }
+        .result-ci {
+            font-size: 13px;
+            color: #4a5868;
+            padding: 10px;
+            background: #f0f4f8;
+            border-radius: 4px;
+            margin-top: 12px;
+        }
+        .result-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #4a5868;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #e1e8ef;
+        }
+        .placeholder {
+            color: #94a3b8;
+            font-size: 14px;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+        .badge {
+            display: inline-block;
+            background: #e8f0fb;
+            color: #1e3a5f;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Оценка стоимости квартиры</h1>
+    </header>
+
+    <div class="container">
+        <!-- ЛЕВАЯ КОЛОНКА: ФОРМА -->
+        <div class="card">
+            <h2>Параметры квартиры</h2>
+
+            <form method="post" action="/">
+                <div class="field">
+                    <label>Модель машинного обучения</label>
+                    <div class="model-tabs">
+                        {% for m in models %}
+                        <label>
+                            <input type="radio" name="model_name" value="{{ m }}"
+                                {% if (form and form.model_name == m) or (not form and m == 'CatBoost') %}checked{% endif %}>
+                            <span>{{ m }}</span>
+                            {% if m == 'CatBoost' %}<span class="recommended">рекомендуется</span>{% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label>Площадь, м²</label>
+                        <input type="number" name="area" step="0.1" min="10" max="500"
+                               value="{{ form.area if form else 38.0 }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Комнат</label>
+                        <input type="number" name="rooms" step="1" min="0" max="10"
+                               value="{{ form.rooms|int if form else 1 }}" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label>Этаж</label>
+                        <input type="number" name="floor" step="1" min="1"
+                               value="{{ form.floor|int if form else 5 }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Этажей в доме</label>
+                        <input type="number" name="total_floors" step="1" min="1"
+                               value="{{ form.total_floors if form else 15 }}" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>До метро, минут пешком</label>
+                    <input type="number" name="minutes_to_metro" step="1" min="0" max="120"
+                           value="{{ form.minutes_to_metro if form else 20 }}" required>
+                </div>
+
+                <div class="field">
+                    <label>Станция метро</label>
+                    <select name="metro_station" required>
+                        {% for s in metro_stations %}
+                        <option value="{{ s }}"
+                            {% if (form and form.metro_station == s) or (not form and s == 'Коломенская') %}selected{% endif %}>
+                            {{ s }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label>Тип ремонта</label>
+                        <select name="renovation" required>
+                            {% for r in renovation_types %}
+                            <option value="{{ r }}"
+                                {% if (form and form.renovation == r) or (not form and r == 'Cosmetic') %}selected{% endif %}>
+                                {{ r }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Студия</label>
+                        <select name="is_studio">
+                            <option value="0" {% if not form or form.is_studio == 0 %}selected{% endif %}>Нет</option>
+                            <option value="1" {% if form and form.is_studio == 1 %}selected{% endif %}>Да</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit">Оценить стоимость</button>
+            </form>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТ -->
+        <div class="card">
+            <h2>Результат оценки</h2>
+
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+
+            {% if result %}
+                <span class="badge">{{ result.model_name }}</span>
+                <div class="result-price">
+                    {{ result.price_formatted }} <small>руб.</small>
+                </div>
+
+                <div class="result-ci">
+                    <strong>Доверительный интервал (±10%):</strong><br>
+                    от {{ result.ci_lower }} до {{ result.ci_upper }} руб.
+                </div>
+
+                <div class="result-meta">
+                    <span>Цена за м²</span>
+                    <strong>{{ result.price_per_sqm }} руб.</strong>
+                </div>
+            {% elif not error %}
+                <div class="placeholder">
+                    Заполните параметры квартиры слева<br>и нажмите «Оценить стоимость»
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
