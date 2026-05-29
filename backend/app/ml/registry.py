@@ -1,32 +1,30 @@
 """
 Фабрика и реестр ML-моделей.
-
-Позволяет:
-- Загрузить все доступные модели при старте приложения.
-- Получить модель по имени для эндпоинтов.
-- Загрузить метрики из metrics.json.
-
-Паттерн: Registry + простая фабрика.
 """
 
-from pathlib import Path
 import json
+from pathlib import Path
+
+import pandas as pd
 
 from backend.app.core.config import settings
-from backend.app.ml.base import ModelMetrics, BaseMLModel
+from backend.app.ml.base import BaseMLModel, ModelMetrics
 from backend.app.ml.catboost_model import CatBoostModel
-from backend.app.ml.xgboost_model import XGBoostModel
-from backend.app.ml.random_forest_model import RandomForestModel
+from backend.app.ml.constants import (
+    FILE_BACKGROUND,
+    MODEL_CATBOOST,
+    MODEL_LINEAR,
+    MODEL_RANDOM_FOREST,
+    MODEL_XGBOOST,
+)
 from backend.app.ml.linear_model import LinearModel
+from backend.app.ml.random_forest_model import RandomForestModel
+from backend.app.ml.xgboost_model import XGBoostModel
 
 def _load_metrics() -> dict[str, ModelMetrics]:
-    """
-    Загружает метрики из ml_models/metrics.json.
-
-    """
     metrics_path: Path = settings.METRICS_PATH
     if not metrics_path.exists():
-        return {}  # модели не обучены — возвращаем пустой словарь
+        return {}
 
     with open(metrics_path, "r", encoding="utf-8") as f:
         raw = json.load(f)
@@ -43,36 +41,45 @@ def _load_metrics() -> dict[str, ModelMetrics]:
         )
     return metrics_map
 
+def _load_background(models_dir: Path) -> pd.DataFrame:
+    """
+    Фоновая выборка для SHAP-explainer (interventional baseline).
+    Если файла нет — возвращаем пустой DataFrame; SHAP всё равно
+    отработает (на пустом TreeExplainer fallback к tree_path_dependent),
+    но рекомендуется всегда иметь background.parquet.
+    """
+    bg_path = models_dir / FILE_BACKGROUND
+    if not bg_path.exists():
+        print(f"[WARN] Background-файл не найден: {bg_path}")
+        return pd.DataFrame()
+
+    return pd.read_parquet(bg_path)
+
 def load_models() -> dict[str, BaseMLModel]:
-    """
-    Загружает и возвращает словарь {имя_модели: экземпляр модели}.
-
-    Модели, которые не удалось загрузить, пропускаются с логом в консоль.
-    Приложение стартует, даже если не загрузилась ни одна модель
-    (это позволяет разрабатывать фронт без обученных артефактов).
-    """
     models_dir: Path = settings.MODELS_DIR
-    metrics_map: dict[str, ModelMetrics] = _load_metrics()
-    registry: dict[str, BaseMLModel] = {}
-
-    # Проверяем, есть ли директория с моделями
     if not models_dir.exists():
         print(f"[WARN] Директория {models_dir} не найдена. Модели не загружены.")
-        return registry
+        return {}
 
+    metrics_map = _load_metrics()
+    background = _load_background(models_dir)
 
     model_classes = {
-        "CatBoost": CatBoostModel,
-        "XGBoost": XGBoostModel,
-        "RandomForest": RandomForestModel,
-        "LinearRegression": LinearModel,
+        MODEL_CATBOOST: CatBoostModel,
+        MODEL_XGBOOST: XGBoostModel,
+        MODEL_RANDOM_FOREST: RandomForestModel,
+        MODEL_LINEAR: LinearModel,
     }
 
+    registry: dict[str, BaseMLModel] = {}
     for name, cls in model_classes.items():
         try:
             metrics = metrics_map.get(name, ModelMetrics(MAE=0, RMSE=0, MAPE=0, R2=0))
-            model = cls(models_dir=models_dir, metrics=metrics)
-            registry[name] = model
+            registry[name] = cls(
+                models_dir=models_dir,
+                metrics=metrics,
+                background=background,
+            )
             print(f"[INFO] Загружена модель: {name} (MAE={metrics.MAE:,.0f})")
         except Exception as e:
             print(f"[WARN] Не удалось загрузить {name}: {e}")

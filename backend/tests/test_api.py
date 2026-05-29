@@ -1,47 +1,17 @@
-"""
-Интеграционные тесты HTTP-эндпоинтов.
-
-Запускают FastAPI-приложение в тестовом режиме (без reload)
-и общаются с ним через httpx.AsyncClient.
-
-Используем httpx.AsyncClient + ASGITransport.
-Lifespan FastAPI не запускается через ASGITransport автоматически,
-поэтому модели загружаем вручную в фикстуре.
-
-pytest-asyncio обязателен: все тесты асинхронны.
-"""
-
-
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from backend.app.main import app
+from backend.app.ml.constants import MODEL_CATBOOST
 from backend.app.ml.registry import load_models
-
-# ── Фикстуры ────────────────────────────
 
 @pytest_asyncio.fixture(scope="module")
 async def client():
-    """
-    Тестовый HTTP-клиент.
-
-    🚲 ASGITransport не запускает lifespan приложения, поэтому
-    app.state.models остаётся пустым. Загружаем модели вручную
-    перед созданием клиента — это эквивалент того, что делает
-    lifespan при реальном запуске.
-
-    Альтернатива — asgi-lifespan.LifespanManager, но это
-    лишняя зависимость для одного места.
-    """
-    # Имитируем lifespan: загружаем модели в app.state
     app.state.models = load_models()
-
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-
-# ─── Константы ────────────────────────────────
 
 SAMPLE_REQUEST = {
     "area": 60.0,
@@ -54,109 +24,71 @@ SAMPLE_REQUEST = {
     "renovation": "Cosmetic",
 }
 
-# ─── 1. /health ────────────────────────────────
-
 class TestHealth:
-    async def test_health_returns_200(self, client: AsyncClient):
-        response = await client.get("/api/v1/health")
-        assert response.status_code == 200
+    async def test_health_returns_200(self, client):
+        r = await client.get("/api/v1/health")
+        assert r.status_code == 200
 
-    async def test_health_returns_json(self, client: AsyncClient):
-        response = await client.get("/api/v1/health")
-        assert response.json() == {"status": "ok"}
-
-# ─── 2. /features ─────────────────────────
+    async def test_health_returns_json(self, client):
+        r = await client.get("/api/v1/health")
+        assert r.json() == {"status": "ok"}
 
 class TestFeatures:
-    async def test_features_returns_200(self, client: AsyncClient):
-        response = await client.get("/api/v1/features")
-        assert response.status_code == 200
+    async def test_features_returns_200(self, client):
+        r = await client.get("/api/v1/features")
+        assert r.status_code == 200
 
-    async def test_features_has_numeric_and_categorical(self, client: AsyncClient):
-        response = await client.get("/api/v1/features")
-        data = response.json()
-        assert "numeric" in data
-        assert "categorical" in data
-        assert "target" in data
+    async def test_features_has_numeric_and_categorical(self, client):
+        data = (await client.get("/api/v1/features")).json()
+        assert {"numeric", "categorical", "target"} <= data.keys()
 
-    async def test_numeric_has_labeland_input_type(self, client: AsyncClient):
-        response = await client.get("/api/v1/features")
-        data = response.json()
+    async def test_numeric_has_label_and_input_type(self, client):
+        data = (await client.get("/api/v1/features")).json()
         for feat in data["numeric"]:
-            assert "label" in feat, f"Поле {feat.get('name')} не имеет label"
+            assert "label" in feat
             assert "input_type" in feat
 
-    async def test_categorical_has_label_and_values(self, client: AsyncClient):
-        response = await client.get("/api/v1/features")
-        data = response.json()
+    async def test_categorical_has_label_and_values(self, client):
+        data = (await client.get("/api/v1/features")).json()
         for feat in data["categorical"]:
             assert "label" in feat
             assert "values" in feat
             assert len(feat["values"]) > 0
 
-# ─── 3. /models────────────────────────────────
-
 class TestModels:
-    async def test_models_returns_200(self, client: AsyncClient):
-        response = await client.get("/api/v1/models")
-        assert response.status_code == 200
+    async def test_models_returns_200(self, client):
+        r = await client.get("/api/v1/models")
+        assert r.status_code == 200
 
-    async def test_models_list_not_empty(self, client: AsyncClient):
-        """
-        Если модели загружены — список не пуст.
-        Используем напрямую app.state, без отдельной фикстуры
-        models_available, чтобы не путать слои.
-        """
-        response = await client.get("/api/v1/models")
-        models_list = response.json().get("models", [])
-        # Модели в этой фикстуре загружаются вручную, значит должны быть
-        assert len(models_list) > 0, "Модели не загружены — проверь ml_models/"
+    async def test_models_list_not_empty(self, client):
+        models_list = (await client.get("/api/v1/models")).json()["models"]
+        assert len(models_list) > 0
 
-    async def test_each_model_has_metrics(self, client: AsyncClient):
-        response = await client.get("/api/v1/models")
-        models_list = response.json().get("models", [])
-        if not models_list:
-            pytest.skip("Нет загруженных моделей")
-
+    async def test_each_model_has_metrics(self, client):
+        models_list = (await client.get("/api/v1/models")).json()["models"]
         for m in models_list:
-            metrics = m.get("metrics", {})
-            assert "MAE" in metrics
-            assert "RMSE" in metrics
-            assert "MAPE" in metrics
-            assert "R2" in metrics
+            metrics = m["metrics"]
+            assert {"MAE", "RMSE", "MAPE", "R2"} <= metrics.keys()
             assert metrics["MAPE"] > 0
 
-# ─── 4. /predict ────────────────────────────────
-
 class TestPredict:
-    async def test_predict_returns_200(self, client: AsyncClient):
-        response = await client.post("/api/v1/predict", json=SAMPLE_REQUEST)
-        assert response.status_code == 200
+    async def test_predict_returns_200(self, client):
+        r = await client.post("/api/v1/predict", json=SAMPLE_REQUEST)
+        assert r.status_code == 200
 
-    async def test_predict_returns_all_models(self, client: AsyncClient):
-        models_resp = await client.get("/api/v1/models")
-        models_count = len(models_resp.json().get("models", []))
-
-        response = await client.post("/api/v1/predict", json=SAMPLE_REQUEST)
-        predictions = response.json().get("predictions", [])
+    async def test_predict_returns_all_models(self, client):
+        models_count = len((await client.get("/api/v1/models")).json()["models"])
+        predictions = (await client.post("/api/v1/predict", json=SAMPLE_REQUEST)).json()["predictions"]
         assert len(predictions) == models_count
 
-    async def test_each_prediction_has_required_fields(self, client: AsyncClient):
-        response = await client.post("/api/v1/predict", json=SAMPLE_REQUEST)
-        predictions = response.json().get("predictions", [])
-
+    async def test_each_prediction_has_required_fields(self, client):
+        predictions = (await client.post("/api/v1/predict", json=SAMPLE_REQUEST)).json()["predictions"]
         for p in predictions:
-            assert "model_name" in p
-            assert "price" in p
-            assert "ci_lower" in p
-            assert "ci_upper" in p
-            assert "price_per_sqm" in p
-            assert "metrics" in p
-            assert isinstance(p["price"], (int, float))
+            assert {"model_name", "price", "ci_lower", "ci_upper", "price_per_sqm", "metrics"} <= p.keys()
             assert p["price"] > 0
             assert p["ci_lower"] < p["ci_upper"]
 
-    @pytest.mark.parametrize(
+    @pytest.mark.parametrizeparametrize(
         "bad_field, bad_value",
         [
             ("area", -10.0),
@@ -167,123 +99,73 @@ class TestPredict:
             ("area", "не число"),
         ],
     )
-    async def test_predict_422_on_invalid_input(
-        self, client: AsyncClient, bad_field: str, bad_value
-    ):
-        bad_request = {**SAMPLE_REQUEST, bad_field: bad_value}
-        response = await client.post("/api/v1/predict", json=bad_request)
-        assert response.status_code == 422
+    async def test_predict_422_on_invalid_input(self, client, bad_field, bad_value):
+        bad = {**SAMPLE_REQUEST, bad_field: bad_value}
+        r = await client.post("/api/v1/predict", json=bad)
+        assert r.status_code == 422
 
-        detail = response.json().get("detail", [])
-        assert len(detail) > 0
-        assert any(bad_field in str(d.get("loc", [])) for d in detail)
-
-    async def test_predict_floor_above_total_floors_422(self, client: AsyncClient):
-        bad_request = {**SAMPLE_REQUEST, "floor": 20, "total_floors": 5}
-        response = await client.post("/api/v1/predict", json=bad_request)
-        assert response.status_code == 422
-
-# ─── 5. /feature-importance ────────────────────
+    async def test_predict_floor_above_total_floors_422(self, client):
+        bad = {**SAMPLE_REQUEST, "floor": 20, "total_floors": 5}
+        r = await client.post("/api/v1/predict", json=bad)
+        assert r.status_code == 422
 
 class TestFeatureImportance:
-    async def test_returns_200_for_valid_model(self, client: AsyncClient):
-        response = await client.get("/api/v1/feature-importance/CatBoost")
-        assert response.status_code in (200, 404)
+    async def test_returns_200_for_valid_model(self, client):
+        r = await client.get(f"/api/v1/feature-importance/{MODEL_CATBOOST}")
+        assert r.status_code == 200
 
-    async def test_404_for_unknown_model(self, client: AsyncClient):
-        response = await client.get("/api/v1/feature-importance/NonExistentModel")
-        assert response.status_code == 404
+    async def test_404_for_unknown_model(self, client):
+        r = await client.get("/api/v1/feature-importance/NonExistentModel")
+        assert r.status_code == 404
 
-    async def test_body_has_correct_structure(self, client: AsyncClient):
-        response = await client.get("/api/v1/feature-importance/CatBoost")
-        if response.status_code != 200:
-            pytest.skip("Модель не загружена")
-        data = response.json()
-        assert "model_name" in data
+    async def test_body_has_correct_structure(self, client):
+        data = (await client.get(f"/api/v1/feature-importance/{MODEL_CATBOOST}")).json()
+        assert data["model_name"] == MODEL_CATBOOST
         assert "features" in data
-
-# ─── 6. /explain ────────────────────────────────
+        assert len(data["features"]) > 0
 
 class TestExplain:
-    async def test_returns_200_for_valid_model(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/explain/CatBoost",
-            json=SAMPLE_REQUEST,
-        )
-        assert response.status_code in (200, 404)
+    async def test_returns_200_for_valid_model(self, client):
+        r = await client.post(f"/api/v1/explain/{MODEL_CATBOOST}", json=SAMPLE_REQUEST)
+        assert r.status_code == 200
 
-    async def test_404_for_unknown_model(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/explain/NonExistentModel",
-            json=SAMPLE_REQUEST,
-        )
-        assert response.status_code == 404
+    async def test_404_for_unknown_model(self, client):
+        r = await client.post("/api/v1/explain/NonExistentModel", json=SAMPLE_REQUEST)
+        assert r.status_code == 404
 
-    async def test_body_has_correct_structure(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/explain/CatBoost",
-            json=SAMPLE_REQUEST,
-        )
-        if response.status_code != 200:
-            pytest.skip("Модель не загружена")
-        data = response.json()
-        assert data["model_name"] == "CatBoost"
-        assert "base_value" in data
-        assert "prediction" in data
-        assert "shap_values" in data
-
-# ─── 7. /sensitivity ────────────────────────────────
+    async def test_body_has_correct_structure(self, client):
+        data = (await client.post(f"/api/v1/explain/{MODEL_CATBOOST}", json=SAMPLE_REQUEST)).json()
+        assert data["model_name"] == MODEL_CATBOOST
+        assert {"base_value", "prediction", "shap_values"} <= data.keys()
+        for item in data["shap_values"]:
+            assert "feature_name" in item
+            assert "value" in item
 
 class TestSensitivity:
-    async def test_returns_200_for_numeric_feature(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/sensitivity/CatBoost/area",
-            json=SAMPLE_REQUEST,
-        )
-        assert response.status_code in (200, 404)
+    async def test_returns_200_for_numeric_feature(self, client):
+        r = await client.post(f"/api/v1/sensitivity/{MODEL_CATBOOST}/area", json=SAMPLE_REQUEST)
+        assert r.status_code == 200
 
-    async def test_returns_200_for_categorical_feature(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/sensitivity/CatBoost/metro_station",
-            json=SAMPLE_REQUEST,
-        )
-        assert response.status_code in (200, 404)
+    async def test_returns_200_for_categorical_feature(self, client):
+        r = await client.post(f"/api/v1/sensitivity/{MODEL_CATBOOST}/metro_station", json=SAMPLE_REQUEST)
+        assert r.status_code == 200
 
-    async def test_404_for_unknown_model(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/sensitivity/NonExistentModel/area",
-            json=SAMPLE_REQUEST,
-        )
-        assert response.status_code == 404
+    async def test_404_for_unknown_model(self, client):
+        r = await client.post("/api/v1/sensitivity/NonExistentModel/area", json=SAMPLE_REQUEST)
+        assert r.status_code == 404
 
-    async def test_404_for_unknown_feature(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/sensitivity/CatBoost/unknown_feature_xyz",
-            json=SAMPLE_REQUEST,
-        )
-        assert response.status_code == 404
+    async def test_404_for_unknown_feature(self, client):
+        r = await client.post(f"/api/v1/sensitivity/{MODEL_CATBOOST}/unknown_feature_xyz", json=SAMPLE_REQUEST)
+        assert r.status_code == 404
 
-    async def test_numeric_grid_has_points(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/sensitivity/CatBoost/area",
-            json=SAMPLE_REQUEST,
-        )
-        if response.status_code != 200:
-            pytest.skip("Модель не загружена")
-        data = response.json()
+    async def test_numeric_grid_has_points(self, client):
+        data = (await client.post(f"/api/v1/sensitivity/{MODEL_CATBOOST}/area", json=SAMPLE_REQUEST)).json()
         assert len(data["points"]) > 1
         for pt in data["points"]:
-            assert "value" in pt
-            assert "price" in pt
+            assert {"value", "price"} <= pt.keys()
             assert isinstance(pt["value"], (int, float))
 
-    async def test_categorical_grid_has_points(self, client: AsyncClient):
-        response = await client.post(
-            "/api/v1/sensitivity/CatBoost/metro_station",
-            json=SAMPLE_REQUEST,
-        )
-        if response.status_code != 200:
-            pytest.skip("Модель не загружена")
-        data = response.json()
+    async def test_categorical_grid_has_points(self, client):
+        data = (await client.post(f"/api/v1/sensitivity/{MODEL_CATBOOST}/metro_station", json=SAMPLE_REQUEST)).json()
         assert len(data["points"]) > 0
         assert data["feature_name"] == "metro_station"

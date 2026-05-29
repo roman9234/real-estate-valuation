@@ -1,15 +1,13 @@
 """
-SHAP-объяснения прогнозов.
+SHAP-объяснения прогнозов: внутренние утилиты ML-слоя.
 
-Поддерживает все четыре модели проекта:
-- CatBoostRegressor → TreeExplainer
-- RandomForestRegressor → TreeExplainer
-- GradientBoostingRegressor → TreeExplainer
-- LinearRegression / Ridge / Lasso → LinearExplainer
+Эти функции вызываются из конкретных классов моделей внутри
+их _compute_shap. Сервисный слой и роуты этот модуль НЕ импортируют.
 
-Особенность: модели обёрнуты в Pipeline(preprocessor → estimator).
-SHAP считается на трансформированных фичах, потом one-hot колонки
-агрегируются обратно к исходным именам признаков.
+Поддерживаемые сценарии:
+- sklearn.Pipeline(preprocessor → RandomForestRegressor / XGBRegressor)
+- sklearn.Pipeline(preprocessor → Ridge / Lasso / LinearRegression)
+- CatBoostRegressor без Pipeline (категории нативные)
 """
 
 from __future__ import annotations
@@ -20,20 +18,18 @@ import numpy as np
 import pandas as pd
 import shap
 from catboost import CatBoostRegressor
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.pipeline import Pipeline
+from xgboost import XGBRegressor
 
-# Размер фоновой выборки для TreeExplainer.
-_BACKGROUND_SIZE = 100
+from backend.app.ml.constants import SHAP_BACKGROUND_SIZE
 
-_TREE_MODELS = (CatBoostRegressor, RandomForestRegressor, GradientBoostingRegressor)
+_TREE_MODELS = (RandomForestRegressor, XGBRegressor)
 _LINEAR_MODELS = (LinearRegression, Ridge, Lasso)
 
 def _split_pipeline(pipeline: Pipeline) -> tuple[Optional[Pipeline], Any]:
-    """
-    Разбивает Pipeline на (препроцессор, итоговая модель).
-    """
+    """Разделяет Pipeline на (препроцессор, итоговый estimator)."""
     if not isinstance(pipeline, Pipeline):
         return None, pipeline
 
@@ -47,95 +43,96 @@ def _split_pipeline(pipeline: Pipeline) -> tuple[Optional[Pipeline], Any]:
 def _get_transformed_feature_names(
     preprocessor: Any, raw_columns: list[str]
 ) -> list[str]:
-    """
-    Получает имена колонок после препроцессинга.
-    Для ColumnTransformer с OHE имена будут вида 'cat__metro_station_Авиамоторная'.
-    """
+    """Имена колонок после препроцессинга (с префиксами OHE)."""
     if preprocessor is None:
         return raw_columns
-
     try:
         return list(preprocessor.get_feature_names_out())
     except Exception:
         return [f"f{i}" for i in range(len(raw_columns))]
 
-def _aggregate_onehot_shap(
-    shap_values: np.ndarray,
+def aggregate_to_original(
+    values: np.ndarray,
     transformed_names: list[str],
     original_names: list[str],
 ) -> dict[str, float]:
     """
-    Агрегирует SHAP-значения one-hot колонок обратно к исходным признакам.
+    Сворачивает значения по трансформированным колонкам
+    обратно к исходным признакам.
+
+    Используется и для SHAP (со знаком), и для Feature Importance
+    (значения неотрицательны, сложение по группам).
+
+    Логика:
+    - Префикс ColumnTransformer ('num__', 'cat__') отбрасывается.
+    - Если оставшееся имя точно совпадает с исходным признаком —
+      это числовая колонка, значение копируется.
+    - Иначе проверяется, начинается ли оно на 'feature_' —
+      это OHE-колонка, значение прибавляется к feature.
     """
-    if shap_values.ndim == 2:
-        shap_values = shap_values[0]
+    if values.ndim == 2:
+        values = values[0]
 
     aggregated = {name: 0.0 for name in original_names}
 
     for i, transformed_name in enumerate(transformed_names):
         clean = transformed_name.split("__", 1)[-1]
 
-        matched_feature = None
         if clean in aggregated:
-            matched_feature = clean
-        else:
-            for orig in original_names:
-                if clean.startswith(f"{orig}_"):
-                    matched_feature = orig
-                    break
+            aggregated[clean] += float(values[i])
+            continue
 
-        if matched_feature is not None:
-            aggregated[matched_feature] += float(shap_values[i])
+        for orig in original_names:
+            if clean.startswith(f"{orig}_"):
+                aggregated[orig] += float(values[i])
+                break
 
     return aggregated
 
-def get_explainer(pipeline: Pipeline, background: pd.DataFrame) -> shap.Explainer:
-    """
-    Создаёт подходящий SHAP-explainer для модели.
-    """
-    preprocessor, estimator = _split_pipeline(pipeline)
-
-    if len(background) > _BACKGROUND_SIZE:
-        background = background.sample(n=_BACKGROUND_SIZE, random_state=42)
-
-    if preprocessor is not None:
-        transformed_bg = preprocessor.transform(background)
-    else:
-        transformed_bg = background.values
-
+def _build_explainer(
+    estimator: Any,
+    transformed_background: np.ndarray,
+) -> shap.Explainer:
+    """Подбирает explainer под тип estimator."""
     if isinstance(estimator, _TREE_MODELS):
         return shap.TreeExplainer(
             estimator,
-            data=transformed_bg,
+            data=transformed_background,
             feature_perturbation="interventional",
         )
-
     if isinstance(estimator, _LINEAR_MODELS):
-        return shap.LinearExplainer(estimator, transformed_bg)
+        return shap.LinearExplainer(estimator, transformed_background)
+    return shap.KernelExplainer(estimator.predict, transformed_background)
 
-    # Универсальный фоллбек
-    return shap.KernelExplainer(estimator.predict, transformed_bg)
+def _sample_background(background: pd.DataFrame) -> pd.DataFrame:
+    if len(background) > SHAP_BACKGROUND_SIZE:
+        return background.sample(n=SHAP_BACKGROUND_SIZE, random_state=42)
+    return background
 
-def explain_prediction(
+def explain_pipeline(
     pipeline: Pipeline,
     sample: pd.DataFrame,
     background: pd.DataFrame,
     original_feature_names: list[str],
-) -> dict[str, Any]:
+) -> tuple[float, dict[str, float]]:
     """
-    Главная функция: считает SHAP для одного объекта.
+    SHAP для модели, обёрнутой в sklearn.Pipeline.
+    Возвращает (base_value, {feature_name: contribution}).
     """
     if len(sample) != 1:
-        raise ValueError(f"Ожидается ровно одна строка, получено {len(sample)}")
+        raise ValueError(f"Ожидается одна строка, получено {len(sample)}")
 
-    preprocessor, _ = _split_pipeline(pipeline)
-    explainer = get_explainer(pipeline, background)
+    preprocessor, estimator = _split_pipeline(pipeline)
+    bg = _sample_background(background)
 
     if preprocessor is not None:
+        transformed_bg = preprocessor.transform(bg)
         transformed_sample = preprocessor.transform(sample)
     else:
+        transformed_bg = bg.values
         transformed_sample = sample.values
 
+    explainer = _build_explainer(estimator, transformed_bg)
     shap_values = explainer.shap_values(transformed_sample)
     if isinstance(shap_values, list):
         shap_values = shap_values[0]
@@ -146,19 +143,45 @@ def explain_prediction(
     else:
         base_value = float(base_value)
 
-    prediction = float(pipeline.predict(sample)[0])
-
     transformed_names = _get_transformed_feature_names(
         preprocessor, list(sample.columns)
     )
-    aggregated = _aggregate_onehot_shap(
-        shap_values, transformed_names, original_feature_names
+    contributions = aggregate_to_original(
+        np.asarray(shap_values), transformed_names, list(original_feature_names)
     )
+    return base_value, contributions
 
-    items = sorted(aggregated.items(), key=lambda kv: abs(kv[1]), reverse=True)
+def explain_catboost(
+    model: CatBoostRegressor,
+    sample: pd.DataFrame,
+    original_feature_names: list[str],
+) -> tuple[float, dict[str, float]]:
+    """
+    SHAP для CatBoost без Pipeline.
 
-    return {
-        "base_value": base_value,
-        "prediction": prediction,
-        "shap_values": [{"feature": name, "value": value} for name, value in items],
-    }
+    Используется встроенный get_feature_importance(type='ShapValues') —
+    он быстрее, чем shap.TreeExplainer, и нативно учитывает
+    категориальные признаки без OHE-разворачивания.
+    Возвращает массив shape=(n_samples, n_features + 1):
+    последняя колонка — bias (base_value).
+    """
+    from catboost import Pool
+
+    feature_names = list(model.feature_names_)
+    cat_features = model.get_cat_feature_indices()
+    pool = Pool(
+        data=sample[feature_names],
+        cat_features=cat_features,
+    )
+    shap_matrix = model.get_feature_importance(data=pool, type="ShapValues")
+
+    row = shap_matrix[0]
+    base_value = float(row[-1])
+    shap_values = row[:-1]
+
+    # У CatBoost имена колонок — производные (floor_ratio, log_area).
+    # Сворачиваем их к исходным признакам через ту же функцию агрегации.
+    contributions = aggregate_to_original(
+        np.asarray(shap_values), feature_names, list(original_feature_names)
+    )
+    return base_value, contributions

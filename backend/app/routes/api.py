@@ -1,80 +1,60 @@
 """
-HTTP-эндпоинты приложения.
-
-Все роуты под префиксом /api/v1. Версионирование через URL —
-самый простой способ; при breaking changes делается /api/v2.
+HTTP-эндпоинты приложения. Префикс /api/v1.
 """
 
 from fastapi import APIRouter, Depends, Request
 
-from backend.app.core.exceptions import ModelNotFoundError
 from backend.app.core.features_meta import get_features_meta
 from backend.app.ml.base import BaseMLModel
 from backend.app.schemas.request import ApartmentRequest
 from backend.app.schemas.response import (
     FeatureImportanceResponse,
+    MetricsResponse,
     ModelInfo,
     ModelsListResponse,
-    MetricsResponse,
     PredictionResponse,
     SensitivityResponse,
     ShapResponse,
 )
-from backend.app.services.explanation import get_feature_importance, get_shap_explanation
+from backend.app.services.explanation import (
+    get_feature_importance,
+    get_shap_explanation,
+)
 from backend.app.services.prediction import predict_all
 from backend.app.services.sensitivity import get_sensitivity
 
 router = APIRouter(prefix="/api/v1")
 
 def get_models(request: Request) -> dict[str, BaseMLModel]:
-    """
-    Зависимость FastAPI: достаёт рестр моделей из app.state
-
-    Глобальный рестр в app.state — самый простой DI для
-    одного процесса. Для масштабирования (несколько воркеров
-    Uvicorn) каждый воркер загрузит модели в свою память —
-    оверхед по RAM, но никаких race condition.
-    Альтернатива — вынести модели в отдельный сервис (gRPC)
-    """
     return request.app.state.models
 
-@router.get("/health")
+router.get("/health")
 async def health() -> dict:
-    """Простой healthcheck для Docker/K8s."""
     return {"status": "ok"}
 
-@router.get("/features")
+router.get("/features")
 async def features() -> dict:
-    """
-    Метаданные признаков для построения формы на фронте.
-    Возвращает обогащённый feature_catalog.
-    """
     return get_features_meta()
 
-@router.get("/models", response_model=ModelsListResponse)
+router.get("/models", response_model=ModelsListResponse)
 async def models_list(
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> ModelsListResponse:
-    """Список загруженных моделей с их метриками."""
     return ModelsListResponse(
         models=[
-            ModelInfo(
-                name=m.name,
-                metrics=MetricsResponse(**m.metrics.__dict__),
-            )
+            ModelInfo(name=m.name, metrics=MetricsResponse(**m.metrics.__dict__))
             for m in models.values()
         ]
     )
 
-@router.post("/predict", response_model=PredictionResponse)
+router.post("/predict", response_model=PredictionResponse)
 async def predict(
     payload: ApartmentRequest,
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> PredictionResponse:
-    """Предсказание цены всеми моделями."""
     return predict_all(payload.to_features(), models)
 
-@router.get(
+router.get(
     "/feature-importance/{model_name}",
     response_model=FeatureImportanceResponse,
 )
@@ -82,67 +62,24 @@ async def feature_importance(
     model_name: str,
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> FeatureImportanceResponse:
-    """
-    Важность признаков для конкретной модели.
-    🚲 Заглушка до главы 3.
-    """
     return get_feature_importance(model_name, models)
 
-from backend.app.ml.shap_explainer import explain_prediction
+router.post("/explain/{model_name}", response_model=ShapResponse)
+async def explain(
+    model_name: str,
+    payload: ApartmentRequest,
+    models: dict[str, BaseMLModel] = Depends(get_models),
+) -> ShapResponse:
+    return get_shap_explanation(model_name, payload.to_features(), models)
 
-# Список исходных признаков (до препроцессинга)
-ORIGINAL_FEATURE_NAMES = [
-    "area", "rooms", "floor", "total_floors", "minutes_to_metro",
-    "floor_ratio", "is_first_floor", "is_last_floor", "is_studio",
-    "log_area",
-    "metro_station", "renovation",
-]
-
-import pandas as pd
-
-def _request_to_dataframe(request: ApartmentRequest) -> pd.DataFrame:
-    """Конвертирует Pydantic-модель в DataFrame для инференса."""
-    return pd.DataFrame([request.model_dump()])
-
-
-@router.post("/explain/{model_name}", response_model=ShapResponse)
-async def explain(model_name: str, request: ApartmentRequest, app_request: Request):
-    registry = app_request.app.state.models
-    if model_name not in registry:
-        raise ModelNotFoundError(model_name)
-
-    model_bundle = registry[model_name]  # содержит pipeline + background
-    sample_df = _request_to_dataframe(request)
-
-    result = explain_prediction(
-        pipeline=model_bundle.pipeline,
-        sample=sample_df,
-        background=model_bundle.background,
-        original_feature_names=ORIGINAL_FEATURE_NAMES,
-    )
-
-    return {
-        "model_name": model_name,
-        **result,
-    }
-
-@router.post(
+router.post(
     "/sensitivity/{model_name}/{feature_name}",
     response_model=SensitivityResponse,
 )
-
 async def sensitivity(
     model_name: str,
     feature_name: str,
     payload: ApartmentRequest,
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> SensitivityResponse:
-    """
-    Кривая чувствительности по одному признаку.
-
-    Почему POST, а не GET, хотя ничего не создаём?
-    Тело запроса содержит фиксированные значения остальных
-    признаков (8 полей), которые передавать в URL неудобно.
-    POST с body — пагматичный выбор.
-    """
     return get_sensitivity(model_name, feature_name, payload.to_features(), models)
