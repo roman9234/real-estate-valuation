@@ -9,7 +9,7 @@ import math
 import numpy as np
 import pytest
 
-from backend.app.ml.enrichment import FeatureEnricher
+from app.ml.enrichment import FeatureEnricher
 
 class TestEnrichBasic:
     """

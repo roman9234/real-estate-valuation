@@ -4,10 +4,10 @@ HTTP-эндпоинты приложения. Префикс /api/v1.
 
 from fastapi import APIRouter, Depends, Request
 
-from backend.app.core.features_meta import get_features_meta
-from backend.app.ml.base import BaseMLModel
-from backend.app.schemas.request import ApartmentRequest
-from backend.app.schemas.response import (
+from app.core.features_meta import get_features_meta
+from app.ml.base import BaseMLModel
+from app.schemas.request import ApartmentRequest
+from app.schemas.response import (
     FeatureImportanceResponse,
     MetricsResponse,
     ModelInfo,
@@ -16,27 +16,27 @@ from backend.app.schemas.response import (
     SensitivityResponse,
     ShapResponse,
 )
-from backend.app.services.explanation import (
+from app.services.explanation import (
     get_feature_importance,
     get_shap_explanation,
 )
-from backend.app.services.prediction import predict_all
-from backend.app.services.sensitivity import get_sensitivity
+from app.services.prediction import predict_all
+from app.services.sensitivity import get_sensitivity
 
 router = APIRouter(prefix="/api/v1")
 
 def get_models(request: Request) -> dict[str, BaseMLModel]:
     return request.app.state.models
 
-router.get("/health")
+@router.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
 
-router.get("/features")
+@router.get("/features")
 async def features() -> dict:
     return get_features_meta()
 
-router.get("/models", response_model=ModelsListResponse)
+@router.get("/models", response_model=ModelsListResponse)
 async def models_list(
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> ModelsListResponse:
@@ -47,14 +47,14 @@ async def models_list(
         ]
     )
 
-router.post("/predict", response_model=PredictionResponse)
+@router.post("/predict", response_model=PredictionResponse)
 async def predict(
     payload: ApartmentRequest,
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> PredictionResponse:
     return predict_all(payload.to_features(), models)
 
-router.get(
+@router.get(
     "/feature-importance/{model_name}",
     response_model=FeatureImportanceResponse,
 )
@@ -64,7 +64,7 @@ async def feature_importance(
 ) -> FeatureImportanceResponse:
     return get_feature_importance(model_name, models)
 
-router.post("/explain/{model_name}", response_model=ShapResponse)
+@router.post("/explain/{model_name}", response_model=ShapResponse)
 async def explain(
     model_name: str,
     payload: ApartmentRequest,
@@ -72,7 +72,7 @@ async def explain(
 ) -> ShapResponse:
     return get_shap_explanation(model_name, payload.to_features(), models)
 
-router.post(
+@router.post(
     "/sensitivity/{model_name}/{feature_name}",
     response_model=SensitivityResponse,
 )

@@ -8,9 +8,9 @@
 - Преобразование в DTO ответа.
 """
 
-from backend.app.core.exceptions import ModelNotLoadedError, PredictionError
-from backend.app.ml.base import BaseMLModel
-from backend.app.schemas.response import (
+from app.core.exceptions import ModelNotLoadedError, PredictionError
+from app.ml.base import BaseMLModel
+from app.schemas.response import (
     MetricsResponse,
     PredictionItem,
     PredictionResponse,

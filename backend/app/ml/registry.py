@@ -7,19 +7,19 @@ from pathlib import Path
 
 import pandas as pd
 
-from backend.app.core.config import settings
-from backend.app.ml.base import BaseMLModel, ModelMetrics
-from backend.app.ml.catboost_model import CatBoostModel
-from backend.app.ml.constants import (
+from app.core.config import settings
+from app.ml.base import BaseMLModel, ModelMetrics
+from app.ml.catboost_model import CatBoostModel
+from app.ml.constants import (
     FILE_BACKGROUND,
     MODEL_CATBOOST,
     MODEL_LINEAR,
     MODEL_RANDOM_FOREST,
     MODEL_XGBOOST,
 )
-from backend.app.ml.linear_model import LinearModel
-from backend.app.ml.random_forest_model import RandomForestModel
-from backend.app.ml.xgboost_model import XGBoostModel
+from app.ml.linear_model import LinearModel
+from app.ml.random_forest_model import RandomForestModel
+from app.ml.xgboost_model import XGBoostModel
 
 def _load_metrics() -> dict[str, ModelMetrics]:
     metrics_path: Path = settings.METRICS_PATH
@@ -51,9 +51,9 @@ def _load_background(models_dir: Path) -> pd.DataFrame:
     bg_path = models_dir / FILE_BACKGROUND
     if not bg_path.exists():
         print(f"[WARN] Background-файл не найден: {bg_path}")
-        return pd.DataFrame()
+        raise Exception("background.parquet не найден")
 
-    return pd.read_parquet(bg_path)
+    return pd.read_csv(bg_path)
 
 def load_models() -> dict[str, BaseMLModel]:
     models_dir: Path = settings.MODELS_DIR

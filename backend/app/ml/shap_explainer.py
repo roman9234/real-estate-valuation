@@ -23,7 +23,7 @@ from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 
-from backend.app.ml.constants import SHAP_BACKGROUND_SIZE
+from app.ml.constants import SHAP_BACKGROUND_SIZE
 
 _TREE_MODELS = (RandomForestRegressor, XGBRegressor)
 _LINEAR_MODELS = (LinearRegression, Ridge, Lasso)

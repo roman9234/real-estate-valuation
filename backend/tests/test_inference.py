@@ -10,7 +10,7 @@
 
 import pytest
 
-from backend.tests.conftest import ALL_MODEL_NAMES
+from tests.conftest import ALL_MODEL_NAMES
 
 # Минимально и максимально допустимые цены (рубли).
 # Источник: feature_catalog.json → target.min/max с небольшим запасом.
@@ -148,24 +148,59 @@ class TestModelMetadata:
         assert metrics.MAPE < 100, "MAPE > 100% — что-то не так"
         assert 0 <= metrics.R2 <= 1, f"R2 вне [0, 1]: {metrics.R2}"
 
-    def test_shap_returns_placeholder(self, model_name, loaded_models, sample_features):
-        """
-        SHAP пока заглушка (главу 3 ещё не делали).
-        Тест фиксирует текущее поведение: не падает, возвращает
-        ShapExplanation с пустым списком.
-        Когда SHAP будет реализован, этот тест нужно заменить
-        на проверку правильности значений.
-        """
+    def test_shap_returns_values(self, model_name, loaded_models, sample_features):
+        """SHAP должен вернуть непустое разложение и быть аддитивным."""
         if model_name not in loaded_models:
             pytest.skip(f"Модель {model_name} не загружена")
 
-        result = loaded_models[model_name].get_shap_values(sample_features)
-        assert result.shap_values == []
+        model = loaded_models[model_name]
+        result = model.get_shap_values(sample_features)
 
-    def test_feature_importance_returns_placeholder(self, model_name, loaded_models):
-        """Feature importance тоже пока заглушка."""
+        # Структура
+        assert result.shap_values, "shap_values не должен быть пустым"
+        assert len(result.shap_values) > 0
+        assert all(hasattr(sv, "feature_name") and hasattr(sv, "value")
+                   for sv in result.shap_values)
+
+        # Сортировка по |value| — контракт base.py
+        abs_values = [abs(sv.value) for sv in result.shap_values]
+        assert abs_values == sorted(abs_values, reverse=True), (
+            "SHAP-значения должны быть отсортированы по |value| убыванию"
+        )
+
+        # Аддитивность: base + sum(contrib) ≈ prediction
+        total = result.base_value + sum(sv.value for sv in result.shap_values)
+        prediction = model.predict(sample_features)
+        rel_err = abs(total - prediction) / max(abs(prediction), 1.0)
+        assert rel_err < 0.05, (
+            f"{model_name}: SHAP не аддитивен. "
+            f"base+sum={total:,.0f}, predict={prediction:,.0f}, "
+            f"отн. ошибка={rel_err:.2%}"
+        )
+
+    def test_feature_importance_returns_values(self, model_name, loaded_models):
+        """Feature importance должен вернуть непустой отсортированный список."""
         if model_name not in loaded_models:
             pytest.skip(f"Модель {model_name} не загружена")
 
         result = loaded_models[model_name].get_feature_importance()
-        assert result == []
+
+        assert result, "feature_importance не должен быть пустым"
+        assert all(fi.importance >= 0 for fi in result), (
+            "Важности должны быть неотрицательными"
+        )
+
+        # Сортировка по убыванию
+        importances = [fi.importance for fi in result]
+        assert importances == sorted(importances, reverse=True), (
+            "Важности должны быть отсортированы по убыванию"
+        )
+
+        # Имена признаков — только из ORIGINAL_FEATURE_NAMES
+        from app.ml.constants import ORIGINAL_FEATURE_NAMES
+        feature_names = {fi.feature_name for fi in result}
+        assert feature_names.issubset(set(ORIGINAL_FEATURE_NAMES)), (
+            f"Имена признаков выходят за ORIGINAL_FEATURE_NAMES: "
+            f"{feature_names - set(ORIGINAL_FEATURE_NAMES)}"
+        )
+

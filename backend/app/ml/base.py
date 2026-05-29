@@ -14,7 +14,7 @@ from typing import Optional
 
 import pandas as pd
 
-from backend.app.ml.enrichment import FeatureEnricher
+from app.ml.enrichment import FeatureEnricher
 
 @dataclass
 class ModelMetrics:

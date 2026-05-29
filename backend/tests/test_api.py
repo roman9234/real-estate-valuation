@@ -2,9 +2,9 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from backend.app.main import app
-from backend.app.ml.constants import MODEL_CATBOOST
-from backend.app.ml.registry import load_models
+from app.main import app
+from app.ml.constants import MODEL_CATBOOST
+from app.ml.registry import load_models
 
 @pytest_asyncio.fixture(scope="module")
 async def client():
@@ -88,7 +88,7 @@ class TestPredict:
             assert p["price"] > 0
             assert p["ci_lower"] < p["ci_upper"]
 
-    @pytest.mark.parametrizeparametrize(
+    @pytest.mark.parametrize(
         "bad_field, bad_value",
         [
             ("area", -10.0),

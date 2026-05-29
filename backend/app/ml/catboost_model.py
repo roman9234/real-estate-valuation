@@ -10,14 +10,14 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostRegressor
 
-from backend.app.ml.base import BaseMLModel, FeatureImportance, ModelMetrics
-from backend.app.ml.constants import (
+from app.ml.base import BaseMLModel, FeatureImportance, ModelMetrics
+from app.ml.constants import (
     FILE_CATBOOST,
     MODEL_CATBOOST,
     ORIGINAL_FEATURE_NAMES,
 )
-from backend.app.ml.enrichment import FeatureEnricher
-from backend.app.ml.shap_explainer import aggregate_to_original, explain_catboost
+from app.ml.enrichment import FeatureEnricher
+from app.ml.shap_explainer import aggregate_to_original, explain_catboost
 
 class CatBoostModel(BaseMLModel):
     def __init__(self, models_dir: Path, metrics: ModelMetrics, background: pd.DataFrame):

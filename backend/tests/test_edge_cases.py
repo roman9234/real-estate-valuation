@@ -9,7 +9,7 @@
 
 import pytest
 
-from backend.tests.conftest import ALL_MODEL_NAMES
+from tests.conftest import ALL_MODEL_NAMES
 
 @pytest.mark.parametrize("model_name", ALL_MODEL_NAMES)
 class TestExtremeValues:

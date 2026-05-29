@@ -29,7 +29,7 @@ FILE_CATBOOST: Final[str] = "catboost.cbm"
 FILE_XGBOOST: Final[str] = "xgboost.pkl"
 FILE_RANDOM_FOREST: Final[str] = "random_forest.pkl"
 FILE_LINEAR: Final[str] = "linear_regression.pkl"
-FILE_BACKGROUND: Final[str] = "background.parquet"
+FILE_BACKGROUND: Final[str] = "background.csv"
 FILE_METRICS: Final[str] = "metrics.json"
 FILE_FEATURE_CATALOG: Final[str] = "feature_catalog.json"
 

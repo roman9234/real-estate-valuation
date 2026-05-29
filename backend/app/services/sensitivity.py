@@ -11,11 +11,11 @@
 
 import numpy as np
 
-from backend.app.core.config import settings
-from backend.app.core.exceptions import ModelNotFoundError, FeaturesMetaNotFoundError
-from backend.app.core.features_meta import get_features_meta
-from backend.app.ml.base import BaseMLModel
-from backend.app.schemas.response import SensitivityPoint, SensitivityResponse
+from app.core.config import settings
+from app.core.exceptions import ModelNotFoundError, FeaturesMetaNotFoundError
+from app.core.features_meta import get_features_meta
+from app.ml.base import BaseMLModel
+from app.schemas.response import SensitivityPoint, SensitivityResponse
 
 # Сколько точек строить для числовых признаков.
 # Хардкод: 30 точек — компромисс между гладкостью кривой

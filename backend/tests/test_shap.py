@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.app.ml.constants import ALL_MODEL_NAMES, ORIGINAL_FEATURE_NAMES
-from backend.app.ml.shap_explainer import (
+from app.ml.constants import ALL_MODEL_NAMES, ORIGINAL_FEATURE_NAMES
+from app.ml.shap_explainer import (
     _split_pipeline,
     aggregate_to_original,
 )
@@ -62,7 +62,7 @@ class TestAggregateToOriginal:
 class TestSplitPipeline:
     def test_pipeline_with_preprocessor(self, loaded_models):
         # Берём любую модель с pipeline (не CatBoost — у него нет _pipeline).
-        from backend.app.ml.constants import MODEL_RANDOM_FOREST
+        from app.ml.constants import MODEL_RANDOM_FOREST
         rf = loaded_models[MODEL_RANDOM_FOREST]
         pre, est = _split_pipeline(rf._pipeline)
         assert pre is not None

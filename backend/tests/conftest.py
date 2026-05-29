@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.ml.base import BaseMLModel
-from backend.app.ml.constants import ALL_MODEL_NAMES
-from backend.app.ml.registry import load_models
+from app.ml.base import BaseMLModel
+from app.ml.constants import ALL_MODEL_NAMES
+from app.ml.registry import load_models
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

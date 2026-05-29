@@ -3,9 +3,9 @@
 Тонкая обёртка над BaseMLModel — вся логика в доменном слое.
 """
 
-from backend.app.core.exceptions import ModelNotFoundError
-from backend.app.ml.base import BaseMLModel
-from backend.app.schemas.response import (
+from app.core.exceptions import ModelNotFoundError
+from app.ml.base import BaseMLModel
+from app.schemas.response import (
     FeatureImportanceItem,
     FeatureImportanceResponse,
     ShapResponse,

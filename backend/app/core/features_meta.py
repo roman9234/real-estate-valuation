@@ -19,8 +19,8 @@ import json
 from functools import lru_cache
 from typing import Any
 
-from backend.app.core.config import settings
-from backend.app.core.exceptions import FeaturesMetaNotFoundError
+from app.core.config import settings
+from app.core.exceptions import FeaturesMetaNotFoundError
 
 # UI-метаданные, которые добавляются поверх сырого каталога.
 _UI_META: dict[str, dict[str, Any]] = {
