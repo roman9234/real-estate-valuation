@@ -7,6 +7,7 @@ HTTP-эндпоинты приложения.
 
 from fastapi import APIRouter, Depends, Request
 
+from backend.app.core.exceptions import ModelNotFoundError
 from backend.app.core.features_meta import get_features_meta
 from backend.app.ml.base import BaseMLModel
 from backend.app.schemas.request import ApartmentRequest
@@ -87,17 +88,43 @@ async def feature_importance(
     """
     return get_feature_importance(model_name, models)
 
+from backend.app.ml.shap_explainer import explain_prediction
+
+# Список исходных признаков (до препроцессинга)
+ORIGINAL_FEATURE_NAMES = [
+    "area", "rooms", "floor", "total_floors", "minutes_to_metro",
+    "floor_ratio", "is_first_floor", "is_last_floor", "is_studio",
+    "log_area",
+    "metro_station", "renovation",
+]
+
+import pandas as pd
+
+def _request_to_dataframe(request: ApartmentRequest) -> pd.DataFrame:
+    """Конвертирует Pydantic-модель в DataFrame для инференса."""
+    return pd.DataFrame([request.model_dump()])
+
+
 @router.post("/explain/{model_name}", response_model=ShapResponse)
-async def explain(
-    model_name: str,
-    payload: ApartmentRequest,
-    models: dict[str, BaseMLModel] = Depends(get_models),
-) -> ShapResponse:
-    """
-    SHAP-разложение для конкретной квартиры.
-    🚲 Заглушка до главы 3.
-    """
-    return get_shap_explanation(model_name, payload.to_features(), models)
+async def explain(model_name: str, request: ApartmentRequest, app_request: Request):
+    registry = app_request.app.state.models
+    if model_name not in registry:
+        raise ModelNotFoundError(model_name)
+
+    model_bundle = registry[model_name]  # содержит pipeline + background
+    sample_df = _request_to_dataframe(request)
+
+    result = explain_prediction(
+        pipeline=model_bundle.pipeline,
+        sample=sample_df,
+        background=model_bundle.background,
+        original_feature_names=ORIGINAL_FEATURE_NAMES,
+    )
+
+    return {
+        "model_name": model_name,
+        **result,
+    }
 
 @router.post(
     "/sensitivity/{model_name}/{feature_name}",

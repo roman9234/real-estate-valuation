@@ -207,7 +207,7 @@ class TestFeatureImportance:
 class TestExplain:
     async def test_returns_200_for_valid_model(self, client: AsyncClient):
         response = await client.post(
-            "/api/v1/explain/CatBost",
+            "/api/v1/explain/CatBoost",
             json=SAMPLE_REQUEST,
         )
         assert response.status_code in (200, 404)
@@ -265,7 +265,7 @@ class TestSensitivity:
 
     async def test_numeric_grid_has_points(self, client: AsyncClient):
         response = await client.post(
-            "/api/v1/sensitivity/CatBost/area",
+            "/api/v1/sensitivity/CatBoost/area",
             json=SAMPLE_REQUEST,
         )
         if response.status_code != 200:

@@ -64,7 +64,7 @@ class BaseMLModel(ABC):
     def __init__(self, name: str, metrics: ModelMetrics):
         self._name = name
         self._metrics = metrics
-        self._explainer = None  # будет установлен в главе 3
+        self._explainer = None
 
     @property
     def name(self) -> str:
