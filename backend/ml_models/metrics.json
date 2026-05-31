@@ -1,0 +1,64 @@
+{
+  "LinearRegression": {
+    "metrics": {
+      "MAE": 14358731.017715465,
+      "RMSE": 36148490.434334494,
+      "MAPE": 22.10095544330139,
+      "R2": 0.7385097429149288
+    },
+    "best_params": {
+      "alpha": 58.75413883159059
+    }
+  },
+  "RandomForest": {
+    "metrics": {
+      "MAE": 10481020.112382123,
+      "RMSE": 26495953.317551337,
+      "MAPE": 17.684664386734894,
+      "R2": 0.8595136011171018
+    },
+    "best_params": {
+      "n_estimators": 300,
+      "max_depth": 28,
+      "min_samples_split": 2,
+      "min_samples_leaf": 1,
+      "max_features": 0.5
+    }
+  },
+  "XGBoost": {
+    "metrics": {
+      "MAE": 9996787.572902495,
+      "RMSE": 25679264.738090128,
+      "MAPE": 16.757898873754865,
+      "R2": 0.8680405946906977
+    },
+    "best_params": {
+      "learning_rate": 0.025887881051024957,
+      "max_depth": 12,
+      "min_child_weight": 2,
+      "subsample": 0.6988435994083716,
+      "colsample_bytree": 0.9299797020830202,
+      "reg_alpha": 0.013960791961297526,
+      "reg_lambda": 0.451815641067262,
+      "gamma": 0.009704277361704892,
+      "n_estimators_after_early_stopping": 394
+    }
+  },
+  "CatBoost": {
+    "metrics": {
+      "MAE": 10891558.310983658,
+      "RMSE": 27039779.786510814,
+      "MAPE": 18.912435178867064,
+      "R2": 0.8536874831200689
+    },
+    "best_params": {
+      "learning_rate": 0.10589224211276584,
+      "depth": 8,
+      "l2_leaf_reg": 1.3472151945909039,
+      "bagging_temperature": 0.3796042434202235,
+      "random_strength": 0.2555585096156588,
+      "min_data_in_leaf": 1,
+      "iterations_after_early_stopping": 1371
+    }
+  }
+}
