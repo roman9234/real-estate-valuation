@@ -239,3 +239,11 @@ npm-debug.log*
 
 # Docker
 .docker/
+/backend/ml_models/xgboost.pkl
+/backend/ml_models/random_forest.pkl
+/backend/ml_models/linear_regression.pkl
+/backend/ml_models/catboost.cbm
+/ml_dir/reports/feature_importance_catboost.png
+/ml_dir/reports/feature_importance_linearregression.png
+/ml_dir/reports/feature_importance_randomforest.png
+/ml_dir/reports/feature_importance_xgboost.png
