@@ -247,3 +247,7 @@ npm-debug.log*
 /ml_dir/reports/feature_importance_linearregression.png
 /ml_dir/reports/feature_importance_randomforest.png
 /ml_dir/reports/feature_importance_xgboost.png
+/ml_dir/ml_models/linear_regression.pkl
+/ml_dir/ml_models/metrics.json
+/ml_dir/ml_models/random_forest.pkl
+/ml_dir/ml_models/xgboost.pkl
