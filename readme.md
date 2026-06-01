@@ -81,3 +81,30 @@ docker compose up
 
 
 
+# Frontend
+
+## Запуск клиентской части без Docker (режим разработки)
+
+### Требования
+- Node.js 20 LTS или новее
+- Запущенная серверная часть на `http://127.0.0.1:8000`
+  (`uvicorn app.main:app --reload` из каталога `backend`)
+
+### Шаги
+```bash
+cd frontend
+npm install          # установка зависимостей (один раз)
+npm run dev          # запуск дев-сервера Vite
+```
+Приложение откроется на `http://localhost:3000`.
+
+Запросы к API (`/api/...`) автоматически проксируются на backend через
+настройку `server.proxy` в `vite.config.ts` — отдельная настройка CORS
+и переменных окружения не требуется. Если backend запущен на другом
+адресе, измените `target` в `vite.config.ts`.
+
+### Продакшен-сборка статики
+```bash
+npm run build        # результат в каталоге frontend/dist
+npm run preview      # локальный просмотр собранной статики
+```
