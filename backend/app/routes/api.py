@@ -23,6 +23,8 @@ from app.services.explanation import (
 from app.services.prediction import predict_all
 from app.services.sensitivity import get_sensitivity
 
+from app.schemas.request import SensitivityRequest
+
 router = APIRouter(prefix="/api/v1")
 
 def get_models(request: Request) -> dict[str, BaseMLModel]:
@@ -79,7 +81,15 @@ async def explain(
 async def sensitivity(
     model_name: str,
     feature_name: str,
-    payload: ApartmentRequest,
+    payload: SensitivityRequest,              # ← поменяли
     models: dict[str, BaseMLModel] = Depends(get_models),
 ) -> SensitivityResponse:
-    return get_sensitivity(model_name, feature_name, payload.to_features(), models)
+    return get_sensitivity(
+        model_name,
+        feature_name,
+        payload.to_features(),
+        models,
+        payload.range_min,
+        payload.range_max,
+        payload.step,
+    )

@@ -60,3 +60,45 @@ class ApartmentRequest(BaseModel):
         FeatureEnricher добавит производные поля внутри predict().
         """
         return self.model_dump()
+
+
+class SensitivityRequest(ApartmentRequest):
+    """
+    Расширенный запрос для sensitivity-анализа.
+
+    Позволяет клиенту задать произвольный диапазон и шаг сетки
+    для числового признака вместо стандартной 30-точечной сетки.
+    """
+    range_min: float | None = None
+    range_max: float | None = None
+    step: float | None = None
+
+    @model_validator(mode="after")
+    def validate_grid_params(self) -> "SensitivityRequest":
+        """
+        Валидация параметров сетки
+        - Если задан хотя бы один — все три должны быть заданы.
+        - range_min < range_max
+        - step > 0
+        """
+        params = [self.range_min, self.range_max, self.step]
+        given = [p is not None for p in params]
+
+        if any(given) and not all(given):
+            raise ValueError(
+                "Параметры range_min, range_max и step должны быть "
+                "переданы одновременно (все три или ни одного)"
+            )
+
+        if all(given):
+            if self.range_min >= self.range_max:
+                raise ValueError(
+                    f"range_min ({self.range_min}) должен быть "
+                    f"меньше range_max ({self.range_max})"
+                )
+            if self.step <= 0:
+                raise ValueError(
+                    f"step ({self.step}) должен быть положительным числом"
+                )
+
+        return self
