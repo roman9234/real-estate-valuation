@@ -1,4 +1,3 @@
-// App.tsx
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import EstimatePage from './pages/EstimatePage'
 import ExplainPage from './pages/ExplainPage'

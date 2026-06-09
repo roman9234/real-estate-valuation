@@ -62,13 +62,6 @@ def aggregate_to_original(
 
     Используется и для SHAP (со знаком), и для Feature Importance
     (значения неотрицательны, сложение по группам).
-
-    Логика:
-    - Префикс ColumnTransformer ('num__', 'cat__') отбрасывается.
-    - Если оставшееся имя точно совпадает с исходным признаком —
-      это числовая колонка, значение копируется.
-    - Иначе проверяется, начинается ли оно на 'feature_' —
-      это OHE-колонка, значение прибавляется к feature.
     """
     if values.ndim == 2:
         values = values[0]
@@ -178,9 +171,6 @@ def explain_catboost(
     row = shap_matrix[0]
     base_value = float(row[-1])
     shap_values = row[:-1]
-
-    # У CatBoost имена колонок — производные (floor_ratio, log_area).
-    # Сворачиваем их к исходным признакам через ту же функцию агрегации.
     contributions = aggregate_to_original(
         np.asarray(shap_values), feature_names, list(original_feature_names)
     )
