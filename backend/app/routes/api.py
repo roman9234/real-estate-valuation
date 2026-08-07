@@ -25,7 +25,7 @@ from app.services.sensitivity import get_sensitivity
 
 from app.schemas.request import SensitivityRequest
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/v1")
 
 def get_models(request: Request) -> dict[str, BaseMLModel]:
     return request.app.state.models
@@ -93,3 +93,7 @@ async def sensitivity(
         payload.range_max,
         payload.step,
     )
+
+@router.get("/health")
+async def health_check():
+    return {"status": "ok"}

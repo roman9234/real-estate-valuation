@@ -1,51 +1,25 @@
-# ==============================================================
-# Docker Compose — одной командой поднимаем всё приложение
-# ==============================================================
-# Команда запуска: docker compose up --build
-# После сборки:    http://localhost:80
-
-# Всё в одной сети app-network. Для production добавили бы
-# отдельную сеть для backend (без доступа к фронту) и reverse proxy
-# (traefik/nginx), но для разработки простая bridge-сеть достаточна.
-
 services:
-
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: diploma-backend
-    ports:
-      - "8000:8000"      # для прямого доступа/отладки
+    restart: unless-stopped
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-    volumes:
-      # 🚲 Bind mount для разработки: меняешь код бэка → перезапуск
-      # без пересборки образа. Для production — убрать.
-      - ./backend/app:/app/app
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8000/api/v1/health"]
-      interval: 30s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 120s
       timeout: 5s
       retries: 3
-      start_period: 10s   # даём время на загрузку моделей
-    networks:
-      - app-network
+      start_period: 40s
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    container_name: diploma-frontend
+    restart: unless-stopped
     ports:
-      - "80:80"           # основная точка входа
+      - "80:80"
     depends_on:
       backend:
-        condition: service_healthy   # фронт стартует только после бэка
-    networks:
-      - app-network
+        condition: service_healthy
 
-networks:
-  app-network:
-    driver: bridge

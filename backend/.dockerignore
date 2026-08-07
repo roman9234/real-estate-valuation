@@ -1,15 +1,12 @@
-# Кеши Python и тестов
+.venv/
+venv/
 __pycache__/
-**/__pycache__/
 *.pyc
-*.pyo
-*.pyd
 .pytest_cache/
 **/.pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Виртуальные окружения
 .venv/
 venv/
 env/
@@ -20,17 +17,7 @@ env/
 
 # Git
 .git/
-.gitignore
-
-# Тесты (не нужны в production-образе)
-tests/
-
-# Docker-файлы (не должны попадать внутрь образа)
-Dockerfile
-.dockerignore
-
-# Прочее
-*.md
 .env
-.env.*
-*.log
+notebooks/
+data/
+*.ipynb

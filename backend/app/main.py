@@ -58,7 +58,7 @@ app.add_middleware(
 # Все доменые ошибки - JSON через единый хендлер
 app.add_exception_handler(DomainError, domain_error_handler)
 
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
