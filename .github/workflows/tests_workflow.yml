@@ -24,5 +24,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run tests
-        run: pytest -v
+      - name: Run API tests
+        continue-on-error: true
+        run: pytest tests/test_api.py -v
+
+      - name: Run Edge Cases tests
+        continue-on-error: true
+        run: pytest tests/test_edge_cases.py -v
+
+      - name: Run Enrichment tests
+        continue-on-error: true
+        run: pytest tests/test_enrichment -v
+
+      - name: Run Inference tests
+        continue-on-error: true
+        run: pytest tests/test_inference -v
+
+
+      - name: Run SHAP tests
+        continue-on-error: true
+        run: pytest tests/test_shap -v

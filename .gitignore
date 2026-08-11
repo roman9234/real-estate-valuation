@@ -252,3 +252,4 @@ npm-debug.log*
 /ml_dir/ml_models/random_forest.pkl
 /ml_dir/ml_models/xgboost.pkl
 /tree.txt
+/ml_dir/ml_models/catboost.cbm
