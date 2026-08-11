@@ -44,9 +44,10 @@ jobs:
 
     # сборка обоих образов (бэк фронт)
     # на pull request только сборка (проверка Dockerfile),
-    # на push в main — сборка + публикация в GHCR.
+    # на push в master — сборка + публикация в GHCR.
 
   build:
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -92,7 +93,7 @@ jobs:
 
   deploy:
     needs: [ test, build ]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
