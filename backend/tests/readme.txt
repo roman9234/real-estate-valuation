@@ -1,6 +1,9 @@
 # Все тесты
 pytest
 
+Подробный вывод
+pytest -v
+
 # Только конкретный файл
 pytest tests/test_enrichment.py -v
 
