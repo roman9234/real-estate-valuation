@@ -37,7 +37,7 @@ export default function ModelSelector({ items, selected, onSelect }: Props) {
               </td>
               <td>
                 {m.model_name}
-                {m.model_name === 'CatBoost' && (
+                {m.model_name === 'XGBoost' && (
                   <span className="badge">рекомендуется</span>
                 )}
               </td>
