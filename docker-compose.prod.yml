@@ -1,6 +1,19 @@
 name: myapp
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
   backend:
     image: ghcr.io/${GH_REPO:?}/backend:${IMAGE_TAG:?}
     restart: unless-stopped
@@ -17,8 +30,10 @@ services:
   frontend:
     image: ghcr.io/${GH_REPO:?}/frontend:${IMAGE_TAG:?}
     restart: unless-stopped
-    ports:
-      - "80:80"
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
