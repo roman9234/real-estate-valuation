@@ -1,4 +1,3 @@
-// ModelSelector.tsx — переключает отображаемую модель из уже полученного ответа
 import type { PredictionItem } from '../types'
 
 interface Props {

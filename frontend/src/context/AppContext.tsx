@@ -17,7 +17,7 @@ const AppCtx = createContext<AppContextValue | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [features, setFeatures] = useState<ApartmentRequest | null>(null)
   const [predictions, setPredictions] = useState<PredictionItem[]>([])
-  const [selected, setSelected] = useState('CatBoost')
+  const [selected, setSelected] = useState('XGBoost')
   return (
     <AppCtx.Provider value={{ features, predictions, selected, setFeatures, setPredictions, setSelected }}>
       {children}

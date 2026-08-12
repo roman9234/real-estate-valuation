@@ -10,7 +10,7 @@ import { useAppCtx } from '../context/AppContext.tsx'
 export default function ExplainPage() {
   const navigate = useNavigate()
   const { features, selected } = useAppCtx()
-  const model = selected ?? 'CatBoost'
+  const model = selected ?? 'XGBoost'
 
   const [shap, setShap] = useState<ShapResponse | null>(null)
   const [fi, setFi] = useState<FeatureImportanceItem[]>([])
