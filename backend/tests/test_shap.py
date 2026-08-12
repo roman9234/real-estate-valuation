@@ -121,33 +121,33 @@ class TestGetShapValues:
             f"[{model_name}] SHAP-значения не отсортированы по |value|"
         )
 
-    # @pytest.mark.parametrize("model_name", ALL_MODEL_NAMES)
-    # def test_different_samples_give_different_explanations(self, loaded_models, model_name):
-    #     """
-    #     Санити-чек: для существенно разных квартир SHAP должен отличаться.
-    #     Если этот тест падает — модель либо не учитывает признаки,
-    #     либо SHAP возвращает константу (ошибка в explainer).
-    #     """
-    #     model = loaded_models[model_name]
-    #
-    #     cheap = {**SAMPLE_FEATURES, "area": 35.0, "rooms": 1, "floor": 1}
-    #     expensive = {**SAMPLE_FEATURES, "area": 120.0, "rooms": 4, "floor": 10}
-    #
-    #     e_cheap = model.get_shap_values(cheap)
-    #     e_expensive = model.get_shap_values(expensive)
-    #
-    #     # Сами прогнозы должны различаться
-    #     assert e_cheap.prediction != e_expensive.prediction
-    #
-    #     # И хотя бы один SHAP-вклад должен заметно сместиться
-    #     v_cheap = {v.feature_name: v.value for v in e_cheap.shap_values}
-    #     v_expensive = {v.feature_name: v.value for v in e_expensive.shap_values}
-    #     max_diff = max(
-    #         abs(v_cheap[f] - v_expensive[f]) for f in ORIGINAL_FEATURE_NAMES
-    #     )
-    #     assert max_diff > 1.0, (
-    #         f"[{model_name}] SHAP практически не изменился между разными квартирами"
-    #     )
+    @pytest.mark.parametrize("model_name", ALL_MODEL_NAMES)
+    def test_different_samples_give_different_explanations(self, loaded_models, model_name):
+        """
+        Санити-чек: для существенно разных квартир SHAP должен отличаться.
+        Если этот тест падает — модель либо не учитывает признаки,
+        либо SHAP возвращает константу (ошибка в explainer).
+        """
+        model = loaded_models[model_name]
+
+        cheap = {**SAMPLE_FEATURES, "area": 35.0, "rooms": 1, "floor": 1}
+        expensive = {**SAMPLE_FEATURES, "area": 120.0, "rooms": 4, "floor": 10}
+
+        e_cheap = model.get_shap_values(cheap)
+        e_expensive = model.get_shap_values(expensive)
+
+        # Сами прогнозы должны различаться
+        assert e_cheap.prediction != e_expensive.prediction
+
+        # И хотя бы один SHAP-вклад должен заметно сместиться
+        v_cheap = {v.feature_name: v.value for v in e_cheap.shap_values}
+        v_expensive = {v.feature_name: v.value for v in e_expensive.shap_values}
+        max_diff = max(
+            abs(v_cheap[f] - v_expensive[f]) for f in ORIGINAL_FEATURE_NAMES
+        )
+        assert max_diff > 1.0, (
+            f"[{model_name}] SHAP практически не изменился между разными квартирами"
+        )
 
 class TestGetFeatureImportance:
     """Глобальная важность признаков для каждой модели."""
